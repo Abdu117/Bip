@@ -2,7 +2,7 @@
 
 ## Overview
 
-A CNN model pretrained on 50% of the MNIST training dataset for the P004 Continual Learning project.
+A CNN model pretrained on 50% of the MNIST training dataset for the Continual Learning project.
 
 ## Dataset
 
