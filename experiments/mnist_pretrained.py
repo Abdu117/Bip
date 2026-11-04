@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 from dataclasses import dataclass
 
 import torch
@@ -101,12 +100,12 @@ class MNISTPretrained(Experiment):
         return full_train_dataset, test_dataset
 
 
-    def _halve_MNIST(self, full_train_dataset: datasets.MNIST, classes: Iterable[int] = range(10)) -> Subset:
+    def _halve_MNIST(self, full_train_dataset: datasets.MNIST) -> Subset:
         selected_indices = []
 
         targets = full_train_dataset.targets
 
-        for digit in classes:
+        for digit in range(10):
             digit_indices = torch.where(targets == digit)[0]
 
             # Randomly select 3000 images from this digit
