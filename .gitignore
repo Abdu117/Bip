@@ -1,0 +1,7 @@
+.data
+.out
+.venv
+
+uv.lock
+
+**__pycache__
