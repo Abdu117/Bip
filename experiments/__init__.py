@@ -9,6 +9,8 @@
 # get a circular-import error. Keep new experiments AFTER the `.base` import.
 from .base import Experiment, Config
 from .mnist_pretrained import MNISTPretrained, MNISTPretrainedConfig
+from .mnist_ewc import MNISTEWC, MNISTEWCConfig
+
 
 # Public API of the package (what `from experiments import *` would export).
 __all__ = [

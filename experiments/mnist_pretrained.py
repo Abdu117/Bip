@@ -1,11 +1,13 @@
 """
 experiments/mnist_pretrained.py
 ===============================
-Experiment: pretrain the CNN on HALF of the MNIST training set.
+Experiment: pretrain the CNN on a small part of the MNIST training set.
 
 This is step 1 of the continual-learning use case. The model learns all 10 digits from
-30,000 images (3,000 per class) and is then evaluated on the 10,000 official test images.
-The saved weights are the starting point for the continual-learning step.
+`samples_per_class` random images per digit (e.g. 100 per digit = 1,000 images) and is then
+evaluated on `test_samples_per_class` test images per digit (e.g. 20 per digit = 200 images).
+How many images are used is set in main.py, nothing is fixed in this file.
+The saved weights are the starting point for the continual-learning step (main_ewc.py).
 """
 from dataclasses import dataclass
 
@@ -25,7 +27,8 @@ class MNISTPretrainedConfig(Config):
     """Config = the base fields (name, seed, model_weights_filepath) plus these:"""
     batch_size: int         # images per optimisation step
     epochs: int             # number of full passes over the training data
-    samples_per_class: int  # images per digit that go into the training half
+    samples_per_class: int  # images per digit used for pretraining
+    test_samples_per_class: int   # test images per digit used for evaluation (e.g. 20)
     learning_rate: int      # step size of Adam (type hint says int, but a float like
                             # 0.001 is what is actually passed; Python does not enforce
                             # type hints, so it works, it should just read `float`)
@@ -45,9 +48,11 @@ class MNISTPretrained(Experiment):
     # Step 1: data
     # ==================================================================
     def init_dataloaders(self):
-        # Load the full MNIST: 60,000 training images and 10,000 test images.
+        # Load the full MNIST (60,000 training images, 10,000 test images).
         full_train_dataset, test_dataset = MNISTPretrained._load_MNIST()
-        # Reduce the training images to the 30,000-image half (3,000 per digit).
+        # Evaluate only on test_samples_per_class images per digit instead of all 10,000.
+        test_dataset = self._select_test_images(test_dataset)
+        # Reduce the training images to samples_per_class images per digit (e.g. 100).
         train_dataset = self._halve_MNIST(full_train_dataset)
 
         # A DataLoader cuts a dataset into batches and delivers them one by one.
@@ -143,11 +148,26 @@ class MNISTPretrained(Experiment):
         return full_train_dataset, test_dataset
 
 
+    def _select_test_images(self, test_dataset: datasets.MNIST) -> Subset:
+        """Pick `test_samples_per_class` random test images of every digit (balanced).
+
+        Deterministic (depends on seed), so every experiment is evaluated on exactly the
+        same test images, which makes the results comparable.
+        """
+        selected = []
+        for digit in range(10):
+            digit_indices = torch.where(test_dataset.targets == digit)[0]
+            generator = torch.Generator().manual_seed(self.config.seed + 1000 + digit)
+            order = torch.randperm(len(digit_indices), generator=generator)
+            selected.extend(digit_indices[order[:self.config.test_samples_per_class]].tolist())
+        return Subset(test_dataset, selected)
+
+
     def _halve_MNIST(self, full_train_dataset: datasets.MNIST) -> Subset:
-        """Pick `samples_per_class` random images of every digit (a balanced half).
+        """Pick `samples_per_class` random images of every digit (a balanced selection).
 
         The choice is deterministic: the same seed and samples_per_class always give the
-        same images. That is what makes it possible to later reconstruct "the other half".
+        same images. That is what makes it possible to later find out which images were NOT used.
         """
         selected_indices = []
 
@@ -160,7 +180,7 @@ class MNISTPretrained(Experiment):
 
             # A separate random generator per digit, seeded with seed + digit, so the
             # selection does not depend on any other random activity in the program.
-            # Randomly select 3000 images from this digit
+            # Randomly select samples_per_class images from this digit
             generator = torch.Generator().manual_seed(self.config.seed + digit)
 
             # randperm = random permutation of 0..n-1; take the first samples_per_class

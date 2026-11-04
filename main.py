@@ -3,9 +3,11 @@ main.py
 =======
 Entry point of the project. Run it with:   python main.py   (or: uv run main.py)
 
-It performs STEP 1 of the continual-learning use case: pretrain a CNN on one half of the
-MNIST training set (30,000 images) and save the weights to .out/mnist_pretrained.pth.
-That checkpoint is later the starting point for the continual-learning step (EWC).
+It performs STEP 1 of the continual-learning use case: pretrain a CNN on only a few
+images per class (100 per digit = 1,000 images in total) and save the weights to
+.out/mnist_pretrained_100.pth. The model is deliberately weak: it is the starting
+point for the next step (main_ewc.py), where it is trained further on other images
+(1,000 per digit) with EWC. Evaluation uses 20 test images per digit (200 in total).
 """
 from pathlib import Path
 from experiments import MNISTPretrained, MNISTPretrainedConfig
@@ -16,27 +18,31 @@ def main():
     # described (and reproducible) by this block.
     config = MNISTPretrainedConfig(
         # Human-readable name, only used for the log output.
-        name="Usecase 1 - MNIST pretrained",
-        # Seed for all random number generators -> same split, same initial weights,
-        # same shuffling on every run. IMPORTANT: a later experiment that needs "the
-        # other half" of the data must use the same seed AND samples_per_class,
-        # otherwise it would select a different half.
+        name="Pretraining on 100 images per class",
+        # Seed for all random number generators -> same image selection, same initial
+        # weights, same shuffling on every run. IMPORTANT: main_ewc.py must use the same
+        # seed AND the same samples_per_class, otherwise it would not know which images
+        # were already used for pretraining.
         seed=42,
-        # Where the trained weights are written. The folder .out is ignored by git.
-        model_weights_filepath=Path(".out/mnist_pretrained.pth"),
+        # Where the trained weights are written. main_ewc.py loads this file.
+        # The folder .out is ignored by git.
+        model_weights_filepath=Path(".out/mnist_pretrained_100.pth"),
 
         # Number of images per optimisation step (the model's weights are updated once
         # per batch of 64 images).
         batch_size=64,
-        # Number of complete passes over the 30,000 training images.
-        # (Note: README.md still says 10 epochs; the value that is actually used is 5.)
+        # Number of complete passes over the 1,000 training images
+        # (1,000 images / batch size 64 = about 16 weight updates per epoch).
         epochs=5,
         # Step size of the Adam optimizer. Too large -> unstable training, too small ->
         # very slow learning. 0.001 is the usual default for Adam.
         learning_rate=0.001,
-        # How many images of EACH digit (0-9) go into the pretraining half.
-        # 3000 * 10 classes = 30,000 images = about half of MNIST's 60,000.
-        samples_per_class=3000,
+        # How many images of EACH digit (0-9) are used for pretraining.
+        # 100 * 10 classes = 1,000 images. Must be the same value in main_ewc.py.
+        samples_per_class=100,
+        # How many test images of EACH digit are used for evaluation.
+        # 20 * 10 classes = 200 test images. Must be the same value in main_ewc.py.
+        test_samples_per_class=20,
     )
 
     # conduct_full() runs the whole pipeline: load data -> train -> save -> evaluate.
