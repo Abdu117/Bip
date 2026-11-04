@@ -1,30 +1,41 @@
 from pathlib import Path
 
-from experiments import MNISTPretrained, MNISTPretrainedConfig
-from models import CNN
+from experiments import MnistPretrained, MnistPretrainedConfig, MnistDer, MnistDerConfig
 
 def main():
-    config = MNISTPretrainedConfig(
+    pretrained_config = MnistPretrainedConfig(
         name="Usecase 1 - MNIST pretrained",
         seed=42,
-        model_weights_filepath=Path(".out/mnist_pretrained.pth"),
+        model_weights_filepath=Path(".out/usecase1_pretrained.pth"),
 
         batch_size=64,
-        epochs=2,
+        epochs=3,
         learning_rate=0.001,
         samples_per_class=3000,
         classes_kept=[0, 3]
     )
 
-    pretrained_exp = MNISTPretrained(config)
+    pretrained_exp = MnistPretrained(pretrained_config)
     pretrained_exp.conduct_full()
 
-    print("A few labels from the unused dataset:")
-    for i in range(10):
-        print(" ", pretrained_exp.unused_dataset[i*500][1])
 
-    pretrained_model = CNN.from_cnn(pretrained_exp.model, 3)
-    print(pretrained_model)
+    der_config = MnistDerConfig(
+        name="Usecase 1 - DER",
+        seed=42,
+        model_weights_filepath=Path(".out/usecase1_der.pth"),
+
+        batch_size=64,
+        learning_rate=0.001,
+        evals=20,
+        samples_per_class=200,
+        alpha=0.05,
+        pretrained=pretrained_exp,
+        classes_added=[8],
+        buffer_size=100
+    )
+
+    der_exp = MnistDer(der_config)
+    der_exp.conduct_full()
 
 
 if __name__ == "__main__":

@@ -8,20 +8,21 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset
 
 from experiments import Experiment, Config
-from models import CNN
+from models import Cnn
 
 
 @dataclass
-class MNISTPretrainedConfig(Config):
+class MnistPretrainedConfig(Config):
     batch_size: int
     epochs: int
     samples_per_class: int
     learning_rate: float
     classes_kept: list[int] # all between 0 and 9
+    # TODO ? things can be added
 
 
-class MNISTPretrained(Experiment):
-    def __init__(self, config: MNISTPretrainedConfig):
+class MnistPretrained(Experiment):
+    def __init__(self, config: MnistPretrainedConfig):
         # For type checking
         super().__init__(config)
         self.config = config
@@ -30,7 +31,7 @@ class MNISTPretrained(Experiment):
 
 
     def init_dataloaders(self):
-        full_train_dataset, full_test_dataset = self._load_MNIST()
+        full_train_dataset, full_test_dataset = self._load_mnist()
         train_dataset = self._training_subset(full_train_dataset)
         test_dataset = self._test_subset(full_test_dataset)
 
@@ -83,7 +84,7 @@ class MNISTPretrained(Experiment):
         return accuracy
 
 
-    def _load_MNIST(self) -> tuple[datasets.MNIST, datasets.MNIST]:
+    def _load_mnist(self) -> tuple[datasets.MNIST, datasets.MNIST]:
         transform = transforms.ToTensor()
         label_to_index = self._label_to_index()
         target_transform = lambda label: label_to_index[label]
@@ -169,7 +170,7 @@ class MNISTPretrained(Experiment):
 
 
     def _init_training_objects(self) -> tuple[nn.Module, nn.modules.loss._Loss, optim.Optimizer]:
-        model = CNN(len(self.config.classes_kept)).to(Experiment.device)
+        model = Cnn(len(self.config.classes_kept)).to(Experiment.device)
 
         criterion = nn.CrossEntropyLoss()
 

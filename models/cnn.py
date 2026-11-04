@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class CNN(nn.Module):
+class Cnn(nn.Module):
     """Small CNN for MNIST: input (N, 1, 28, 28), output (N, nb_labels)."""
 
     def __init__(self, nb_labels: int):
@@ -24,7 +24,7 @@ class CNN(nn.Module):
 
 
     @staticmethod
-    def from_cnn(base: "CNN", new_nb_labels: int) -> "CNN":
+    def from_cnn(base: "Cnn", new_nb_labels: int) -> "Cnn":
         """Return a copy of ``base`` with ``new_nb_labels`` output classes.
 
         Shared class weights are copied over (truncated when classes are
@@ -35,7 +35,7 @@ class CNN(nn.Module):
 
         old_head = base.classifier[HEAD_INDEX]
 
-        model = CNN(new_nb_labels).to(
+        model = Cnn(new_nb_labels).to(
             device=old_head.weight.device,
             dtype=old_head.weight.dtype,
         )
