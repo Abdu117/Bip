@@ -1,5 +1,7 @@
 from pathlib import Path
+
 from experiments import MNISTPretrained, MNISTPretrainedConfig
+from models import CNN
 
 def main():
     config = MNISTPretrainedConfig(
@@ -14,11 +16,14 @@ def main():
         classes_kept=[0, 3]
     )
 
-    exp = MNISTPretrained(config)
-    exp.conduct_full()
+    pretrained_exp = MNISTPretrained(config)
+    pretrained_exp.conduct_full()
 
-    for i, loader in exp.unused_loaders.items():
+    for i, loader in pretrained_exp.unused_loaders.items():
         print(f"{i}: {len(loader.dataset)} images unused")
+
+    pretrained_model = CNN.from_cnn(pretrained_exp.model, 3)
+    print(pretrained_model)
 
 
 if __name__ == "__main__":

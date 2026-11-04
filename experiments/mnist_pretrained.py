@@ -30,8 +30,9 @@ class MNISTPretrained(Experiment):
 
 
     def init_dataloaders(self):
-        full_train_dataset, test_dataset = MNISTPretrained._load_MNIST()
+        full_train_dataset, full_test_dataset = self._load_MNIST()
         train_dataset = self._training_subset(full_train_dataset)
+        test_dataset = self._test_subset(full_test_dataset)
 
         self.train_loader = DataLoader(
             train_dataset,
@@ -82,25 +83,37 @@ class MNISTPretrained(Experiment):
         return accuracy
 
 
-    @staticmethod
-    def _load_MNIST() -> tuple[datasets.MNIST, datasets.MNIST]:
+    def _load_MNIST(self) -> tuple[datasets.MNIST, datasets.MNIST]:
         transform = transforms.ToTensor()
+        label_to_index = self._label_to_index()
+        target_transform = lambda label: label_to_index[label]
 
         full_train_dataset = datasets.MNIST(
             root="./.data",
             train=True,
             download=True,
-            transform=transform
+            transform=transform,
+            target_transform=target_transform
         )
 
-        test_dataset = datasets.MNIST(
+        full_test_dataset = datasets.MNIST(
             root="./.data",
             train=False,
             download=True,
-            transform=transform
+            transform=transform,
+            target_transform=target_transform
         )
 
-        return full_train_dataset, test_dataset
+        return full_train_dataset, full_test_dataset
+
+
+    def _label_to_index(self) -> dict[int, int]:
+        """Map kept MNIST digits to contiguous class indices (0..n-1)}. Used for subset setting
+        Example: {0, 3, 5} become {0: 0, 1: 3, 2: 5}"""
+        return {
+            label: index
+            for index, label in enumerate(self.config.classes_kept)
+        }
 
 
     def _training_subset(self, full_train_dataset: datasets.MNIST) -> Subset:
@@ -142,8 +155,20 @@ class MNISTPretrained(Experiment):
         return train_dataset
 
 
+    def _test_subset(self, full_test_dataset: datasets.MNIST) -> Subset:
+        label_to_index = self._label_to_index()
+        test_indices = [
+            index
+            for index, label in enumerate(full_test_dataset.targets.tolist())
+            if label in label_to_index
+        ]
+
+        test_subset = Subset(full_test_dataset, test_indices)
+        return test_subset
+
+
     def _init_training_objects(self) -> tuple[nn.Module, nn.modules.loss._Loss, optim.Optimizer]:
-        model = CNN().to(Experiment.device)
+        model = CNN(len(self.config.classes_kept)).to(Experiment.device)
 
         criterion = nn.CrossEntropyLoss()
 
