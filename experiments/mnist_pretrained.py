@@ -16,7 +16,7 @@ class MNISTPretrainedConfig(Config):
     batch_size: int
     epochs: int
     samples_per_class: int
-    learning_rate: int
+    learning_rate: float
     classes_kept: list[int] # all between 0 and 9
 
 
@@ -26,7 +26,7 @@ class MNISTPretrained(Experiment):
         super().__init__(config)
         self.config = config
 
-        self.unused_loaders: dict[int, DataLoader] = {}
+        self.unused_dataset: Subset
 
 
     def init_dataloaders(self):
@@ -118,6 +118,7 @@ class MNISTPretrained(Experiment):
 
     def _training_subset(self, full_train_dataset: datasets.MNIST) -> Subset:
         selected_indices = []
+        unused_indices = []
 
         targets = full_train_dataset.targets
 
@@ -137,19 +138,19 @@ class MNISTPretrained(Experiment):
             selected_indices.extend(selected.tolist())
 
             # Store unused indices for experiments that extend the pretrained
-            unused_indices = digit_indices[
+            unused = digit_indices[
                 permutation[self.config.samples_per_class:]
             ]
-            unused_dataset = Subset(full_train_dataset, unused_indices)
-            self.unused_loaders[digit] = DataLoader(
-                unused_dataset,
-                batch_size=self.config.batch_size,
-                shuffle=True
-            )
+            unused_indices.extend(unused.tolist())
 
         train_dataset = Subset(
             full_train_dataset,
             selected_indices
+        )
+
+        self.unused_dataset = Subset(
+            full_train_dataset,
+            unused_indices
         )
 
         return train_dataset

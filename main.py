@@ -19,8 +19,9 @@ def main():
     pretrained_exp = MNISTPretrained(config)
     pretrained_exp.conduct_full()
 
-    for i, loader in pretrained_exp.unused_loaders.items():
-        print(f"{i}: {len(loader.dataset)} images unused")
+    print("A few labels from the unused dataset:")
+    for i in range(10):
+        print(" ", pretrained_exp.unused_dataset[i*500][1])
 
     pretrained_model = CNN.from_cnn(pretrained_exp.model, 3)
     print(pretrained_model)
