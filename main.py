@@ -3,7 +3,8 @@ from dataclasses import asdict
 from experiments import (
     MnistPretrained, MnistPretrainedConfig,
     MnistConfig,
-    MnistDer, MnistDerConfig
+    MnistDer, MnistDerConfig,
+    MnistDerpp, MnistDerppConfig,
 )
 
 def main():
@@ -25,22 +26,36 @@ def main():
 
 
     config = MnistConfig(
-        name="usecase1_der",
+        name="usecase1_",
         group="usecase1",
         seed=42,
 
         batch_size=32,
         learning_rate=0.001,
-        samples_per_class=500,
-        alpha=0.05,
+        samples_per_class=200,
         pretrained=pretrained_exp,
         all_classes=[0, 3, 8],
         streamed_classes=[0, 3, 8],
     )
+    config_args = asdict(config)
+    config_args.pop("name")
 
-    der_config = MnistDerConfig(**asdict(config), buffer_size=200)
-    der_exp = MnistDer(der_config)
-    der_exp.conduct_full()
+    der_config = MnistDerConfig(
+        **config_args,
+        name=config.name + "der",
+        buffer_size=200,
+        alpha=0.5
+    )
+    MnistDer(der_config).conduct_full()
+
+    derpp_config = MnistDerppConfig(
+        **config_args,
+        name=config.name + "derpp",
+        buffer_size=200,
+        alpha=0.5,
+        beta=0.5
+    )
+    MnistDerpp(derpp_config).conduct_full()
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from models import MnistCnn, Der
 @dataclass
 class MnistDerConfig(MnistConfig):
     buffer_size: int
+    alpha: float
 
 
 class MnistDer(MnistUsecase):
@@ -36,11 +37,8 @@ class MnistDer(MnistUsecase):
         """Train and log the measures of each batch."""
         self.model, criterion, optimizer = self._init_training_objects()
 
-        nb_batches = self.config.samples_per_class * len(self.config.streamed_classes) / self.config.batch_size
-        if nb_batches != round(nb_batches, 0):
-            nb_batches += 1
         initial_accuracy = self.evaluate_model()
-        print(f"  Number of batches: {nb_batches}")
+        print(f"  Number of batches: {len(self.train_loader)}")
         print(f"  Initial test accuracy: {self.format_value(initial_accuracy)}")
 
         for batch, (images, labels) in enumerate(self.train_loader, start=1):

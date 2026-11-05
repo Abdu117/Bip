@@ -13,7 +13,6 @@ class MnistConfig(Config):
     batch_size: int
     learning_rate: float
     samples_per_class: int
-    alpha: float
     pretrained: MnistPretrained
     all_classes: list[int] # all between 0 and 9
     streamed_classes: list[int] # all between 0 and 9, included in ``all_classes``
