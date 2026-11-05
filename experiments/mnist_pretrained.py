@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import torch
 import torch.nn as nn
@@ -7,7 +7,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset
 
-from experiments import Experiment, Config
+from experiments import Experiment, Config, Measures
 from models import Cnn
 
 
@@ -18,19 +18,27 @@ class MnistPretrainedConfig(Config):
     samples_per_class: int
     learning_rate: float
     classes_kept: list[int] # all between 0 and 9
-    # TODO ? things can be added
+
+
+@dataclass
+class MnistPretrainedMeasures(Measures):
+    epoch: list[int] = field(default_factory=list)
+    loss: list[float] = field(default_factory=list)
+    train_accuracy: list[float] = field(default_factory=list)
+    test_accuracy: list[float] = field(default_factory=list)
 
 
 class MnistPretrained(Experiment):
+    measures_type = MnistPretrainedMeasures
+
     def __init__(self, config: MnistPretrainedConfig):
         # For type checking
         super().__init__(config)
         self.config = config
 
-        self.unused_dataset: Subset
-
 
     def init_dataloaders(self):
+        """Load MNIST and build the pretrained training and test dataloaders."""
         full_train_dataset, full_test_dataset = self._load_mnist()
         train_dataset = self._training_subset(full_train_dataset)
         test_dataset = self._test_subset(full_test_dataset)
@@ -48,18 +56,25 @@ class MnistPretrained(Experiment):
         )
 
 
+    def init_model(self) -> nn.Module:
+        """Create a CNN with one output per kept class."""
+        return Cnn(len(self.config.classes_kept)).to(Experiment.device)
+
+
     def train_model(self):
+        """Train the CNN for the configured epochs and log each epoch's measures."""
         self.model, criterion, optimizer = self._init_training_objects()
 
         for epoch in range(self.config.epochs):
             loss, train_accuracy = self._train_one_epoch(criterion, optimizer)
 
             test_accuracy = self.evaluate_model()
-            print(
-                f"    Epoch [{epoch + 1}/{self.config.epochs}] "
-                f"Loss: {loss:.4f} | "
-                f"Train Accuracy: {train_accuracy:.2f}% | "
-                f"Test Accuracy: {test_accuracy:.2f}%"
+
+            self.log_measure(
+                epoch=epoch + 1,
+                loss=loss,
+                train_accuracy=train_accuracy,
+                test_accuracy=test_accuracy
             )
 
 
@@ -85,6 +100,7 @@ class MnistPretrained(Experiment):
 
 
     def _load_mnist(self) -> tuple[datasets.MNIST, datasets.MNIST]:
+        """Load the MNIST train and test datasets with digit-to-index remapping."""
         transform = transforms.ToTensor()
         label_to_index = self._label_to_index()
         target_transform = lambda label: label_to_index[label]
@@ -109,8 +125,10 @@ class MnistPretrained(Experiment):
 
 
     def _label_to_index(self) -> dict[int, int]:
-        """Map kept MNIST digits to contiguous class indices (0..n-1)}. Used for subset setting
-        Example: {0, 3, 5} become {0: 0, 1: 3, 2: 5}"""
+        """Map kept MNIST digits to contiguous model class indices.
+
+        For example, {0, 3, 5} become {0: 0, 3: 1, 5: 2}.
+        """
         return {
             label: index
             for index, label in enumerate(self.config.classes_kept)
@@ -118,8 +136,8 @@ class MnistPretrained(Experiment):
 
 
     def _training_subset(self, full_train_dataset: datasets.MNIST) -> Subset:
+        """Select a deterministic sample subset for each kept class."""
         selected_indices = []
-        unused_indices = []
 
         targets = full_train_dataset.targets
 
@@ -138,26 +156,16 @@ class MnistPretrained(Experiment):
             ]
             selected_indices.extend(selected.tolist())
 
-            # Store unused indices for experiments that extend the pretrained
-            unused = digit_indices[
-                permutation[self.config.samples_per_class:]
-            ]
-            unused_indices.extend(unused.tolist())
-
         train_dataset = Subset(
             full_train_dataset,
             selected_indices
-        )
-
-        self.unused_dataset = Subset(
-            full_train_dataset,
-            unused_indices
         )
 
         return train_dataset
 
 
     def _test_subset(self, full_test_dataset: datasets.MNIST) -> Subset:
+        """Select the test samples belonging to the kept classes."""
         label_to_index = self._label_to_index()
         test_indices = [
             index
@@ -170,7 +178,8 @@ class MnistPretrained(Experiment):
 
 
     def _init_training_objects(self) -> tuple[nn.Module, nn.modules.loss._Loss, optim.Optimizer]:
-        model = Cnn(len(self.config.classes_kept)).to(Experiment.device)
+        """Create the model, loss function and optimizer for training."""
+        model = self.init_model()
 
         criterion = nn.CrossEntropyLoss()
 
@@ -183,6 +192,7 @@ class MnistPretrained(Experiment):
 
 
     def _train_one_epoch(self, criterion: nn.modules.loss._Loss, optimizer: optim.Optimizer) -> tuple[float, float]:
+        """Train for one epoch and return the average loss and training accuracy."""
         self.model.train()
 
         total_loss = 0

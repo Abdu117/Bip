@@ -1,12 +1,15 @@
-from pathlib import Path
+from dataclasses import asdict
 
-from experiments import MnistPretrained, MnistPretrainedConfig, MnistDer, MnistDerConfig
+from experiments import (
+    MnistPretrained, MnistPretrainedConfig,
+    MnistConfig,
+    MnistDer, MnistDerConfig
+)
 
 def main():
     pretrained_config = MnistPretrainedConfig(
-        name="Usecase 1 - MNIST pretrained",
+        name="usecase1_pretrained",
         seed=42,
-        model_weights_filepath=Path(".out/usecase1_pretrained.pth"),
 
         batch_size=64,
         epochs=3,
@@ -19,21 +22,19 @@ def main():
     pretrained_exp.conduct_full()
 
 
-    der_config = MnistDerConfig(
-        name="Usecase 1 - DER",
+    config = MnistConfig(
+        name="usecase1_der",
         seed=42,
-        model_weights_filepath=Path(".out/usecase1_der.pth"),
 
-        batch_size=64,
+        batch_size=32,
         learning_rate=0.001,
-        evals=20,
-        samples_per_class=200,
+        samples_per_class=500,
         alpha=0.05,
         pretrained=pretrained_exp,
         classes_added=[8],
-        buffer_size=100
     )
 
+    der_config = MnistDerConfig(**asdict(config), buffer_size=200)
     der_exp = MnistDer(der_config)
     der_exp.conduct_full()
 

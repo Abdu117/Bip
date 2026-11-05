@@ -6,6 +6,7 @@ class Cnn(nn.Module):
     """Small CNN for MNIST: input (N, 1, 28, 28), output (N, nb_labels)."""
 
     def __init__(self, nb_labels: int):
+        """Build the convolutional feature extractor and the classification head."""
         super().__init__()
         self.features = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, padding=1),
@@ -58,4 +59,5 @@ class Cnn(nn.Module):
 
 
     def forward(self, x):
+        """Run a batch of images through the network."""
         return self.classifier(self.features(x))
