@@ -52,11 +52,11 @@ class MnistUsecase(Experiment):
         )
 
 
-    def evaluate_model(self) -> float:
+    def evaluate_model(self) -> float | dict[str, float]:
         self.model.eval()
 
-        correct = 0
-        total = 0
+        correct = {label: 0 for label in self.config.all_classes}
+        total = {label: 0 for label in self.config.all_classes}
 
         with torch.no_grad():
             for images, labels in self.test_loader:
@@ -66,10 +66,21 @@ class MnistUsecase(Experiment):
                 outputs = self.model(images)
                 predictions = outputs.argmax(dim=1)
 
-                correct += (predictions == labels).sum().item()
-                total += labels.size(0)
+                for index, label in enumerate(self.config.all_classes):
+                    mask = labels == index
+                    correct[label] += (predictions[mask] == labels[mask]).sum().item()
+                    total[label] += mask.sum().item()
 
-        accuracy = 100 * correct / total
+        accuracy = {
+            str(label): 100 * correct[label] / total[label]
+            for label in self.config.all_classes
+            if total[label] > 0
+        }
+
+        nb_correct = sum(correct.values())
+        nb_total = sum(total.values())
+        accuracy["global"] = 100 * nb_correct / nb_total
+
         return accuracy
 
 

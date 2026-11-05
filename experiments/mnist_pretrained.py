@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
@@ -7,7 +7,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset
 
-from experiments import Experiment, Config, Measures
+from experiments import Experiment, Config
 from models import MnistCnn
 
 
@@ -20,17 +20,7 @@ class MnistPretrainedConfig(Config):
     classes_kept: list[int] # all between 0 and 9
 
 
-@dataclass
-class MnistPretrainedMeasures(Measures):
-    epoch: list[int] = field(default_factory=list)
-    loss: list[float] = field(default_factory=list)
-    train_accuracy: list[float] = field(default_factory=list)
-    test_accuracy: list[float] = field(default_factory=list)
-
-
 class MnistPretrained(Experiment):
-    measures_type = MnistPretrainedMeasures
-
     def __init__(self, config: MnistPretrainedConfig):
         # For type checking
         super().__init__(config)
@@ -78,7 +68,7 @@ class MnistPretrained(Experiment):
             )
 
 
-    def evaluate_model(self) -> float:
+    def evaluate_model(self) -> float | dict[str, float]:
         self.model.eval()
 
         correct = 0

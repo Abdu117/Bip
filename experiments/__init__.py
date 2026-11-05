@@ -1,4 +1,4 @@
-from .base import Experiment, Config, Measures
+from .base import Experiment, Config
 from .mnist_pretrained import MnistPretrained, MnistPretrainedConfig
 from .mnist_usecase import MnistUsecase, MnistConfig
 from .mnist_der import MnistDer, MnistDerConfig
@@ -6,7 +6,6 @@ from .mnist_der import MnistDer, MnistDerConfig
 __all__ = [
     "Experiment",
     "Config",
-    "Measures",
 
     "MnistPretrained",
     "MnistPretrainedConfig",

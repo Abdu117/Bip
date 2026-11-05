@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from dataclasses import asdict, dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass
 from datetime import datetime
 import hashlib
 import json
@@ -21,15 +21,9 @@ class Config:
     seed: int
 
 
-@dataclass
-class Measures:
-    """Container for logged measures. Every field must be a list."""
-
-
 class Experiment:
     torch_initialized: bool = False
     device: torch.device
-    measures_type: type[Measures] = Measures
 
     def __init__(self, config: Config):
         """Store the experiment configuration and initialise its measures container."""
@@ -39,7 +33,7 @@ class Experiment:
         self.model: torch.nn.Module
 
         self.config = config
-        self.measures = self.measures_type()
+        self.measures: dict[str, list] = {}
         self._result_dir: Path | None = None # Needs to be stored since it contains a timestamp
 
     @abstractmethod
@@ -53,8 +47,8 @@ class Experiment:
         raise NotImplementedError()
     
     @abstractmethod
-    def evaluate_model(self) -> float:
-        """Return the model's accuracy on the test set as a percentage."""
+    def evaluate_model(self) -> float | dict[str, float]:
+        """Return the model's accuracy, overall or per class, as a percentage."""
         raise NotImplementedError()
 
     @abstractmethod
@@ -105,7 +99,7 @@ class Experiment:
 
             if self.load_measures():
                 print("  Experiment detected in the cache. Printing stored results:")
-                self.restore_cached_state()
+                self.load_model_from_cache()
                 self.print_measures()
                 return
 
@@ -124,7 +118,12 @@ class Experiment:
         print("  Saving experiment (config, measures, model)...")
         self.save_to_disk()
         print("  Experiment saved successfully!")
-        print(f"  Final test accuracy: {self.evaluate_model()}%")
+
+        final_accuracy = self.evaluate_model()
+        if isinstance(final_accuracy, dict):
+            print(f"  Final test accuracy: {self.format_value(final_accuracy)}")
+        else:
+            print(f"  Final test accuracy: {final_accuracy}%")
 
     @staticmethod
     def init_torch():
@@ -212,7 +211,7 @@ class Experiment:
         return result_dir
 
 
-    def restore_cached_state(self) -> None:
+    def load_model_from_cache(self) -> None:
         """Build the model and load the weights cached for this experiment."""
         self.model = self.init_model()
         state = torch.load(self.weights_path, map_location=Experiment.device)
@@ -220,12 +219,27 @@ class Experiment:
         self.model.eval()
 
 
-    def log_measure(self, **values: int | float) -> None:
-        """Append one value per field to the measures and print the formatted row."""
+    def log_measure(self, **values: int | float | dict) -> None:
+        """Append one value per measure and print the formatted row."""
         for name, value in values.items():
-            getattr(self.measures, name).append(value)
+            self.measures.setdefault(name, []).append(value)
 
         print(self.format_measure(values))
+
+
+    @staticmethod
+    def format_value(value) -> str:
+        """Return a human-readable representation of a measure value."""
+        if isinstance(value, dict):
+            return "{" + ", ".join(
+                f"{key}: {Experiment.format_value(item)}"
+                for key, item in value.items()
+            ) + "}"
+
+        if isinstance(value, float):
+            return f"{value:.4f}"
+
+        return str(value)
 
 
     def format_measure(self, measure: dict) -> str:
@@ -233,9 +247,7 @@ class Experiment:
         parts = []
         for name, value in measure.items():
             label = name.replace("_", " ").capitalize()
-            if isinstance(value, float):
-                value = f"{value:.4f}"
-            parts.append(f"{label}: {value}")
+            parts.append(f"{label}: {self.format_value(value)}")
 
         return "    " + " | ".join(parts)
 
@@ -251,27 +263,22 @@ class Experiment:
         if not isinstance(data, dict):
             return False
 
-        self.measures = self.measures_type()
-        for field in fields(self.measures):
-            if field.name in data:
-                setattr(self.measures, field.name, data[field.name])
-
+        self.measures = data
         return True
 
 
     def print_measures(self) -> None:
         """Print every cached measure using the common formatter."""
-        fields_ = fields(self.measures)
         nb_measures = max(
-            (len(getattr(self.measures, field.name)) for field in fields_),
+            (len(values) for values in self.measures.values()),
             default=0
         )
 
         for index in range(nb_measures):
             measure = {
-                field.name: getattr(self.measures, field.name)[index]
-                for field in fields_
-                if index < len(getattr(self.measures, field.name))
+                name: values[index]
+                for name, values in self.measures.items()
+                if index < len(values)
             }
             print(self.format_measure(measure))
 
@@ -286,7 +293,7 @@ class Experiment:
         # Measures
         self.measures_path.parent.mkdir(parents=True, exist_ok=True)
         with self.measures_path.open("w", encoding="utf-8") as file:
-            json.dump(asdict(self.measures), file, indent=4)
+            json.dump(self.measures, file, indent=4)
 
         # Model
         self.weights_path.parent.mkdir(parents=True, exist_ok=True)

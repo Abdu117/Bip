@@ -35,7 +35,7 @@ def main():
         alpha=0.05,
         pretrained=pretrained_exp,
         all_classes=[0, 3, 8],
-        streamed_classes=[8],
+        streamed_classes=[0, 3, 8],
     )
 
     der_config = MnistDerConfig(**asdict(config), buffer_size=200)

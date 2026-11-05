@@ -1,11 +1,11 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from experiments import Experiment, Measures, MnistUsecase, MnistConfig
+from experiments import Experiment, MnistUsecase, MnistConfig
 from models import MnistCnn, Der
 
 
@@ -14,18 +14,7 @@ class MnistDerConfig(MnistConfig):
     buffer_size: int
 
 
-@dataclass
-class MnistDerMeasures(Measures):
-    batch: list[int] = field(default_factory=list)
-    loss: list[float] = field(default_factory=list)
-    train_accuracy: list[float] = field(default_factory=list)
-    test_accuracy: list[float] = field(default_factory=list)
-    buffer_length: list[int] = field(default_factory=list)
-
-
 class MnistDer(MnistUsecase):
-    measures_type = MnistDerMeasures
-
     def __init__(self, config: MnistDerConfig):
         # For type checking
         super().__init__(config)
@@ -47,7 +36,12 @@ class MnistDer(MnistUsecase):
         """Train and log the measures of each batch."""
         self.model, criterion, optimizer = self._init_training_objects()
 
-        print(f"  Initial test accuracy: {self.evaluate_model()}%")
+        nb_batches = self.config.samples_per_class * len(self.config.streamed_classes) / self.config.batch_size
+        if nb_batches != round(nb_batches, 0):
+            nb_batches += 1
+        initial_accuracy = self.evaluate_model()
+        print(f"  Number of batches: {nb_batches}")
+        print(f"  Initial test accuracy: {self.format_value(initial_accuracy)}")
 
         for batch, (images, labels) in enumerate(self.train_loader, start=1):
             loss, train_accuracy = self._train_on_batch(
@@ -86,8 +80,8 @@ class MnistDer(MnistUsecase):
         optimizer: optim.Optimizer,
         images: torch.Tensor,
         labels: torch.Tensor,
-    ) -> tuple[float, float]:
-        """Run one optimisation step with the DER replay loss and return loss and accuracy."""
+    ) -> tuple[float, dict[str, float]]:
+        """Run one optimisation step and return loss and per-class train accuracy."""
         self.model.train()
 
         images = images.to(Experiment.device)
@@ -114,6 +108,16 @@ class MnistDer(MnistUsecase):
         self.model.add_to_buffer(images, labels, outputs.detach())
 
         predictions = outputs.argmax(dim=1)
-        accuracy = 100 * (predictions == labels).sum().item() / labels.size(0)
+        train_accuracy = {}
+        for index in torch.unique(labels).tolist():
+            mask = labels == index
+            train_accuracy[str(self.config.all_classes[index])] = (
+                100 * (predictions[mask] == labels[mask]).sum().item()
+                / mask.sum().item()
+            )
 
-        return loss.item(), accuracy
+        train_accuracy["global"] = (
+            100 * (predictions == labels).sum().item() / labels.size(0)
+        )
+
+        return loss.item(), train_accuracy
