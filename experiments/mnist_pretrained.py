@@ -22,7 +22,7 @@ class MnistPretrainedConfig(Config):
 
 class MnistPretrained(Experiment):
     def __init__(self, config: MnistPretrainedConfig):
-        # For type checking
+        # For type checking and Experiment.from_kwargs
         super().__init__(config)
         self.config = config
 

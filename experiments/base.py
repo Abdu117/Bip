@@ -6,6 +6,7 @@ import json
 import numpy as np
 from pathlib import Path
 import random
+from typing import get_type_hints, Self
 
 import torch
 from torch.utils.data import DataLoader
@@ -17,7 +18,7 @@ RESULTS_DIR = Path(".results")
 @dataclass
 class Config:
     name: str
-    group: str = field(default="nogroup", kw_only=True)
+    group: str
     seed: int
 
 
@@ -35,6 +36,14 @@ class Experiment:
         self.config = config
         self.measures: dict[str, list] = {}
         self._result_dir: Path | None = None # Needs to be stored since it contains a timestamp
+
+
+    @classmethod
+    def from_kwargs(cls, **kwargs) -> Self:
+        """Create an experiment from its config constructor arguments."""
+        config_type = get_type_hints(cls.__init__).get("config")
+        return cls(config_type(**kwargs))
+
 
     @abstractmethod
     def init_dataloaders(self) -> None:

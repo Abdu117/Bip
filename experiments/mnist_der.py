@@ -17,7 +17,7 @@ class MnistDerConfig(MnistConfig):
 
 class MnistDer(MnistUsecase):
     def __init__(self, config: MnistDerConfig):
-        # For type checking
+        # For type checking and Experiment.from_kwargs
         super().__init__(config)
         self.config = config
         self.model: Der

@@ -1,15 +1,17 @@
 from dataclasses import asdict
 
 from experiments import (
-    MnistPretrained, MnistPretrainedConfig,
+    MnistPretrained,
     MnistConfig,
-    MnistDer, MnistDerConfig,
-    MnistDerpp, MnistDerppConfig,
+    MnistDer,
+    MnistDerpp,
 )
 
 def main():
     """Run the pretrained experiment followed by the DER experiment."""
-    pretrained_config = MnistPretrainedConfig(
+
+    # Pretrained model
+    pretrained_exp = MnistPretrained.from_kwargs(
         name="usecase1_pretrained",
         group="usecase1",
         seed=42,
@@ -20,11 +22,10 @@ def main():
         samples_per_class=3000,
         classes_kept=[0, 3]
     )
-
-    pretrained_exp = MnistPretrained(pretrained_config)
     pretrained_exp.conduct_full()
 
 
+    # Shared config between approaches
     config = MnistConfig(
         name="usecase1_",
         group="usecase1",
@@ -40,22 +41,21 @@ def main():
     config_args = asdict(config)
     config_args.pop("name")
 
-    der_config = MnistDerConfig(
+    # Conducting the different approaches using the pretrained model
+    MnistDer.from_kwargs(
         **config_args,
         name=config.name + "der",
         buffer_size=200,
         alpha=0.5
-    )
-    MnistDer(der_config).conduct_full()
+    ).conduct_full()
 
-    derpp_config = MnistDerppConfig(
+    MnistDerpp.from_kwargs(
         **config_args,
         name=config.name + "derpp",
         buffer_size=200,
         alpha=0.5,
         beta=0.5
-    )
-    MnistDerpp(derpp_config).conduct_full()
+    ).conduct_full()
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ class MnistDerppConfig(MnistDerConfig):
 
 class MnistDerpp(MnistDer):
     def __init__(self, config: MnistDerppConfig):
-        # For type checking
+        # For type checking and Experiment.from_kwargs
         super().__init__(config)
         self.config = config
 
