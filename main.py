@@ -10,6 +10,7 @@ def main():
     """Run the pretrained experiment followed by the DER experiment."""
     pretrained_config = MnistPretrainedConfig(
         name="usecase1_pretrained",
+        group="usecase1",
         seed=42,
 
         batch_size=64,
@@ -25,6 +26,7 @@ def main():
 
     config = MnistConfig(
         name="usecase1_der",
+        group="usecase1",
         seed=42,
 
         batch_size=32,

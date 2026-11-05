@@ -1,5 +1,6 @@
 from abc import abstractmethod
-from dataclasses import asdict, dataclass, fields, is_dataclass
+from dataclasses import asdict, dataclass, field, fields, is_dataclass
+from datetime import datetime
 import hashlib
 import json
 import numpy as np
@@ -16,6 +17,7 @@ RESULTS_DIR = Path(".results")
 @dataclass
 class Config:
     name: str
+    group: str = field(default="nogroup", kw_only=True)
     seed: int
 
 
@@ -38,6 +40,7 @@ class Experiment:
 
         self.config = config
         self.measures = self.measures_type()
+        self._result_dir: Path | None = None # Needs to be stored since it contains a timestamp
 
     @abstractmethod
     def init_dataloaders(self) -> None:
@@ -61,25 +64,31 @@ class Experiment:
 
 
     @property
+    def result_parent(self) -> Path:
+        """Directory containing the cached runs of this experiment."""
+        return RESULTS_DIR / self.config.group / self.config.name
+
+    @property
     def result_dir(self) -> Path:
-        """Directory where this experiment's cached results are stored."""
-        return RESULTS_DIR / self.config.name / self.config_hash()
+        """Directory where the current run is stored."""
+        if self._result_dir is None:
+            self._result_dir = self.new_result_dir()
+        return self._result_dir
 
     @property
     def weights_path(self) -> Path:
-        """Path to the cached model weights."""
+        """Path to the model weights."""
         return self.result_dir / "weights.pth"
 
     @property
     def measures_path(self) -> Path:
-        """Path to the cached measures file."""
+        """Path to the measures file."""
         return self.result_dir / "measures.json"
 
     @property
     def config_path(self) -> Path:
-        """Path to the cached configuration file."""
+        """Path to the configuration file."""
         return self.result_dir / "config.json"
-
 
     def conduct_full(self):
         """Run the experiment, or replay the stored results when cached."""
@@ -89,12 +98,16 @@ class Experiment:
 
         print(f"Starting experiment '{self.config.name}'. Environment seed: {self.config.seed}.")
 
-        # A completed run has its config, weights and measures.
-        if self.load_measures():
-            print("  Experiment detected in the cache. Printing stored results:")
-            self.restore_cached_state()
-            self.print_measures()
-            return
+        # A completed run has a directory tagged with the config hash.
+        cached_dir = self.find_cached_result_dir()
+        if cached_dir is not None:
+            self._result_dir = self.refresh_cached_result_dir(cached_dir)
+
+            if self.load_measures():
+                print("  Experiment detected in the cache. Printing stored results:")
+                self.restore_cached_state()
+                self.print_measures()
+                return
 
         self.seed_environment()
 
@@ -134,15 +147,6 @@ class Experiment:
             torch.cuda.manual_seed_all(seed)
 
 
-    def config_hash(self) -> str:
-        """Return a stable hash of the config contents, used to cache results."""
-        payload = json.dumps(
-            self.config_to_dict(self.config),
-            sort_keys=True
-        )
-        return hashlib.md5(payload.encode("utf-8")).hexdigest()
-
-
     @classmethod
     def config_to_dict(cls, config: Config) -> dict:
         """Convert a config dataclass into a JSON-serialisable dictionary."""
@@ -161,12 +165,51 @@ class Experiment:
         # Nested experiments are identified by their result path instead of
         # duplicating their whole config in the parent config.
         if isinstance(value, Experiment):
-            return f"{value.config.name}/{value.config_hash()}"
+            return f"{value.config.group}/{value.config.name}"
 
         if isinstance(value, (list, tuple)):
             return [cls._value_to_dict(item) for item in value]
 
         return value
+
+
+    def config_hash(self) -> str:
+        """Return a short stable hash of the config contents, used to tag results."""
+        payload = json.dumps(
+            self.config_to_dict(self.config),
+            sort_keys=True
+        )
+        return hashlib.md5(payload.encode("utf-8")).hexdigest()[:10]
+
+
+    def new_result_dir(self) -> Path:
+        """Return a fresh result directory named with the current date and config hash."""
+        timestamp = datetime.now().strftime("%y%m%d-%H%M%S")
+        return self.result_parent / f"{timestamp}-{self.config_hash()}"
+
+
+    def find_cached_result_dir(self) -> Path | None:
+        """Return the newest cached directory whose hash matches this config, if any."""
+        if not self.result_parent.is_dir():
+            return None
+
+        config_hash = self.config_hash()
+        matches = [
+            path
+            for path in self.result_parent.iterdir()
+            if path.is_dir() and path.name.rsplit("-", 1)[-1] == config_hash
+        ]
+        if not matches:
+            return None
+
+        return max(matches)
+
+
+    def refresh_cached_result_dir(self, cached_dir: Path) -> Path:
+        """Rename a cached result directory to the current date and return it."""
+        result_dir = self.new_result_dir()
+        cached_dir.rename(result_dir)
+        return result_dir
 
 
     def restore_cached_state(self) -> None:
