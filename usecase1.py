@@ -1,8 +1,9 @@
 """
-Use case 1 :train on a few classes, then ADD a new class with EWC.
-One file, no framework needed except your models/cnn.py.
+Use case 1 (single-file version): train on a few classes, then ADD a new class with EWC.
+One file, no framework needed except models/cnn.py. Useful for quick single runs.
+The framework version (several seeds, mean and std) is main_usecase1.py.
 
-Run from the project root:   python usecase1_simple.py
+Run from the project root:   python usecase1.py
 """
 import copy
 

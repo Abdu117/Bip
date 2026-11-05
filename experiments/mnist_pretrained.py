@@ -7,7 +7,7 @@ This is step 1 of the continual-learning use case. The model learns all 10 digit
 `samples_per_class` random images per digit (e.g. 100 per digit = 1,000 images) and is then
 evaluated on `test_samples_per_class` test images per digit (e.g. 20 per digit = 200 images).
 How many images are used is set in main.py, nothing is fixed in this file.
-The saved weights are the starting point for the continual-learning step (main_ewc.py).
+The saved weights are the starting point for the continual-learning step (main_usecase2.py).
 """
 from dataclasses import dataclass
 
@@ -29,9 +29,7 @@ class MNISTPretrainedConfig(Config):
     epochs: int             # number of full passes over the training data
     samples_per_class: int  # images per digit used for pretraining
     test_samples_per_class: int   # test images per digit used for evaluation (e.g. 20)
-    learning_rate: int      # step size of Adam (type hint says int, but a float like
-                            # 0.001 is what is actually passed; Python does not enforce
-                            # type hints, so it works, it should just read `float`)
+    learning_rate: float    # step size of the Adam optimizer, e.g. 0.001
 
 
 class MNISTPretrained(Experiment):
