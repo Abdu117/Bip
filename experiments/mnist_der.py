@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from experiments import Experiment, Measures, MnistUsecase, MnistConfig
-from models import Cnn, Der
+from models import MnistCnn, Der
 
 
 @dataclass
@@ -34,10 +34,10 @@ class MnistDer(MnistUsecase):
 
 
     def init_model(self) -> nn.Module:
-        """Expand the pretrained backbone and wrap it in a DER model."""
-        backbone = Cnn.from_cnn(
+        """Adapts the pretrained backbone to the model class set and wrap it in DER."""
+        backbone = MnistCnn.from_cnn(
             self.config.pretrained.model,
-            len(self.all_classes)
+            new_classes=self.config.all_classes,
         ).to(Experiment.device)
 
         return Der(backbone, self.config.buffer_size).to(Experiment.device)

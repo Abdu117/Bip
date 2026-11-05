@@ -7,6 +7,7 @@ from experiments import (
 )
 
 def main():
+    """Run the pretrained experiment followed by the DER experiment."""
     pretrained_config = MnistPretrainedConfig(
         name="usecase1_pretrained",
         seed=42,
@@ -31,7 +32,8 @@ def main():
         samples_per_class=500,
         alpha=0.05,
         pretrained=pretrained_exp,
-        classes_added=[8],
+        all_classes=[0, 3, 8],
+        streamed_classes=[8],
     )
 
     der_config = MnistDerConfig(**asdict(config), buffer_size=200)

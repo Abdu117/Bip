@@ -8,7 +8,7 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, Subset
 
 from experiments import Experiment, Config, Measures
-from models import Cnn
+from models import MnistCnn
 
 
 @dataclass
@@ -58,7 +58,7 @@ class MnistPretrained(Experiment):
 
     def init_model(self) -> nn.Module:
         """Create a CNN with one output per kept class."""
-        return Cnn(len(self.config.classes_kept)).to(Experiment.device)
+        return MnistCnn(self.config.classes_kept).to(Experiment.device)
 
 
     def train_model(self):

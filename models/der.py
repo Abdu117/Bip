@@ -30,11 +30,9 @@ class Der(nn.Module):
 
     @property
     def buffer_length(self) -> int:
-        """Return the number of samples currently stored in the replay buffer."""
         return len(self.buffer_inputs)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Run inputs through the wrapped backbone."""
         return self.backbone(x)
 
     @torch.no_grad()

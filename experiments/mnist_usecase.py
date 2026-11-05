@@ -15,7 +15,8 @@ class MnistConfig(Config):
     samples_per_class: int
     alpha: float
     pretrained: MnistPretrained
-    classes_added: list[int] # all between 0 and 9
+    all_classes: list[int] # all between 0 and 9
+    streamed_classes: list[int] # all between 0 and 9, included in ``all_classes``
 
 
 class MnistUsecase(Experiment):
@@ -23,6 +24,13 @@ class MnistUsecase(Experiment):
         # For type checking
         super().__init__(config)
         self.config = config
+
+        missing = set(config.streamed_classes) - set(config.all_classes)
+        if missing:
+            raise ValueError(
+                "streamed_classes must be included in all_classes. "
+                f"Missing: {sorted(missing)}"
+            )
 
 
     def init_dataloaders(self):
@@ -65,17 +73,6 @@ class MnistUsecase(Experiment):
         return accuracy
 
 
-    @property
-    def all_classes(self) -> list[int]:
-        """Classes of the DER model, in output-index order.
-
-        The pretrained classes come first so their output indices are
-        preserved when the classifier head is expanded.
-        """
-        classes = self.config.pretrained.config.classes_kept + self.config.classes_added
-        return list(dict.fromkeys(classes))
-
-
     def _load_mnist(self) -> tuple[datasets.MNIST, datasets.MNIST]:
         """Load the MNIST datasets with digit-to-model-index remapping."""
         transform = transforms.ToTensor()
@@ -102,15 +99,15 @@ class MnistUsecase(Experiment):
 
 
     def _label_to_index(self) -> dict[int, int]:
-        """Map MNIST digits to the model's contiguous class indices."""
+        """Map the model's classes to their contiguous output indices."""
         return {
             label: index
-            for index, label in enumerate(self.all_classes)
+            for index, label in enumerate(self.config.all_classes)
         }
 
 
     def _training_superset(self, full_train_dataset: datasets.MNIST) -> Subset:
-        """Select training samples from unused old-class and all new-class data."""
+        """Select training samples for the configured streamed classes."""
         # IMPORTANT: use the part of MNIST that hasn't been used to train the pretrained model
         targets = full_train_dataset.targets
         pretrained_classes = self.config.pretrained.config.classes_kept
@@ -121,7 +118,7 @@ class MnistUsecase(Experiment):
         unused_indices = self._unused_pretrained_indices(targets)
 
         selected_indices = []
-        for digit in self.all_classes:
+        for digit in self.config.streamed_classes:
             if digit in pretrained_classes:
                 candidates = unused_indices[targets[unused_indices] == digit]
             else:
@@ -159,12 +156,11 @@ class MnistUsecase(Experiment):
 
 
     def _test_superset(self, full_test_dataset: datasets.MNIST) -> Subset:
-        """Select test samples for every class known to the model."""
-        label_to_index = self._label_to_index()
+        """Select test samples for the evaluated ``all_classes`` only."""
         test_indices = [
             index
             for index, label in enumerate(full_test_dataset.targets.tolist())
-            if label in label_to_index
+            if label in self.config.all_classes
         ]
 
         return Subset(full_test_dataset, test_indices)

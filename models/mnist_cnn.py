@@ -2,12 +2,14 @@ import torch
 import torch.nn as nn
 
 
-class Cnn(nn.Module):
+class MnistCnn(nn.Module):
     """Small CNN for MNIST: input (N, 1, 28, 28), output (N, nb_labels)."""
 
-    def __init__(self, nb_labels: int):
+    def __init__(self, classes: list[int]):
         """Build the convolutional feature extractor and the classification head."""
         super().__init__()
+        self.classes = classes
+
         self.features = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -20,23 +22,23 @@ class Cnn(nn.Module):
             nn.Flatten(),
             nn.Linear(32 * 7 * 7, 128),
             nn.ReLU(),
-            nn.Linear(128, nb_labels),
+            nn.Linear(128, len(classes)),
         )
 
 
     @staticmethod
-    def from_cnn(base: "Cnn", new_nb_labels: int) -> "Cnn":
-        """Return a copy of ``base`` with ``new_nb_labels`` output classes.
+    def from_cnn(base: "MnistCnn", new_classes: list[int]) -> "MnistCnn":
+        """Return a copy of ``base`` with ``new_classes`` as output classes.
 
-        Shared class weights are copied over (truncated when classes are
-        removed). Weights for added classes keep the default initialisation of
-        a fresh ``CNN``. No training is performed.
+        Shared class weights are copied by class identity, so classes can be
+        reordered, removed or added. Weights for added classes keep the default
+        initialisation of a fresh ``MnistCnn``. No training is performed.
         """
         HEAD_INDEX = 3
 
         old_head = base.classifier[HEAD_INDEX]
 
-        model = Cnn(new_nb_labels).to(
+        model = MnistCnn(new_classes).to(
             device=old_head.weight.device,
             dtype=old_head.weight.dtype,
         )
@@ -49,15 +51,25 @@ class Cnn(nn.Module):
                 if not key.startswith(head_prefix):
                     value.copy_(old_state[key])
 
-            # Copy the class weights and biases that both models share.
-            nb_shared = min(old_head.out_features, new_nb_labels)
-            model.classifier[HEAD_INDEX].weight[:nb_shared] = old_head.weight[:nb_shared]
-            if old_head.bias is not None:
-                model.classifier[HEAD_INDEX].bias[:nb_shared] = old_head.bias[:nb_shared]
+            head = model.classifier[HEAD_INDEX]
+            old_indices = {
+                label: index
+                for index, label in enumerate(base.classes)
+            }
+
+            # Copy each class by identity, leaving truly new classes with
+            # their fresh initialisation.
+            for new_index, label in enumerate(new_classes):
+                old_index = old_indices.get(label)
+                if old_index is None:
+                    continue
+
+                head.weight[new_index].copy_(old_head.weight[old_index])
+                if old_head.bias is not None:
+                    head.bias[new_index].copy_(old_head.bias[old_index])
 
         return model
 
 
     def forward(self, x):
-        """Run a batch of images through the network."""
         return self.classifier(self.features(x))
