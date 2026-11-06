@@ -38,6 +38,7 @@ class MNISTEWC(MNISTPretrained):
     def __init__(self, config: MNISTEWCConfig):
         super().__init__(config)
         self.config = config
+        self.results: dict[str, float] = {}   # filled in train_model(), read by main_usecase2.py
 
     # ---------------------------------------------------------------- data
     def init_dataloaders(self):
@@ -77,7 +78,8 @@ class MNISTEWC(MNISTPretrained):
         self.model, criterion, optimizer = self._init_training_objects()
         state = torch.load(self.config.pretrained_weights_filepath, map_location=Experiment.device)
         self.model.load_state_dict(state)
-        print(f"    Pretrained model | Test accuracy: {self.evaluate_model():.2f}%")
+        pretrained_accuracy = self.evaluate_model()
+        print(f"    Pretrained model | Test accuracy: {pretrained_accuracy:.2f}%")
 
         # Remember the old weights and how important each weight is (skipped for lambda = 0).
         if self.config.ewc_lambda > 0:
@@ -85,11 +87,19 @@ class MNISTEWC(MNISTPretrained):
 
         for epoch in range(self.config.epochs):
             loss, train_accuracy = self._train_one_epoch(criterion, optimizer)
+            test_accuracy = self.evaluate_model()
             print(
                 f"    Epoch [{epoch + 1}/{self.config.epochs}] "
                 f"Loss: {loss:.4f} | Train Accuracy: {train_accuracy:.2f}% | "
-                f"Test Accuracy: {self.evaluate_model():.2f}%"
+                f"Test Accuracy: {test_accuracy:.2f}%"
             )
+
+        # Store the accuracies so that main_usecase2.py can save them (only evaluation,
+        # the training itself is unchanged).
+        self.results = {
+            "pretrained_accuracy": pretrained_accuracy,
+            "final_accuracy": test_accuracy if self.config.epochs > 0 else pretrained_accuracy,
+        }
 
     def _train_one_epoch(self, criterion, optimizer):
         """Same as in MNISTPretrained, plus the EWC penalty."""

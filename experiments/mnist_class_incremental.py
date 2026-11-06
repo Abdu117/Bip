@@ -13,6 +13,7 @@ This is exactly the same procedure as usecase1.py, only split into the framework
   5. Print the accuracy on the old and on the new classes for both.
 
 All settings come from the config (main_usecase1.py), nothing is hard-coded.
+After a run, the accuracies are stored in `self.results` (used by main_usecase1_search.py).
 With the same settings, the random numbers are used in the same order as in usecase1.py.
 """
 import copy
@@ -47,6 +48,7 @@ class MNISTClassIncremental(Experiment):
     def __init__(self, config: MNISTClassIncrementalConfig):
         super().__init__(config)
         self.config = config
+        self.results: dict[str, float] = {}   # filled at the end of train_model()
 
     # ---------------------------------------------------------------- data
     @staticmethod
@@ -166,6 +168,15 @@ class MNISTClassIncremental(Experiment):
 
         # The EWC model is the one the framework saves and evaluates at the end.
         self.model = with_ewc
+
+        # Store the accuracies so that other scripts (e.g. the parameter search) can use them.
+        # Only evaluation, no random numbers are used here, so the run itself is unchanged.
+        self.results = {
+            "plain_old": self._accuracy(plain, cfg.old_classes),
+            "plain_new": self._accuracy(plain, cfg.new_classes),
+            "ewc_old": self._accuracy(with_ewc, cfg.old_classes),
+            "ewc_new": self._accuracy(with_ewc, cfg.new_classes),
+        }
 
     def evaluate_model(self) -> float:
         """Accuracy of the EWC model over old + new classes (the 'Final test accuracy' line)."""
