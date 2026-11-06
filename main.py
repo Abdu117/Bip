@@ -8,8 +8,6 @@ from experiments import (
 )
 
 def main():
-    """Run the pretrained experiment followed by the DER experiment."""
-
     # Pretrained model
     pretrained_exp = MnistPretrained.from_kwargs(
         name="usecase1_pretrained",

@@ -170,10 +170,10 @@ class Experiment:
         if is_dataclass(value):
             return cls.config_to_dict(value)
 
-        # Nested experiments are identified by their result path instead of
-        # duplicating their whole config in the parent config.
+        # Nested experiments are identified by their result path and config
+        # hash instead of duplicating their whole config in the parent config.
         if isinstance(value, Experiment):
-            return f"{value.config.group}/{value.config.name}"
+            return f"{value.config.group}/{value.config.name}:{value.config_hash()}"
 
         if isinstance(value, (list, tuple)):
             return [cls._value_to_dict(item) for item in value]
